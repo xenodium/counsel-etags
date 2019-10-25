@@ -807,11 +807,10 @@ If SHOW-ONLY-TEXT is t, the candidate shows only text."
     (cons head
           (list file lnum tagname))))
 
-(defmacro counsel-etags-push-one-candidate (cands tagname-re bound root-dir context &optional show-only-text)
+(defmacro counsel-etags-push-one-candidate (cands tagname-re bound root-dir context)
   "Push new candidate into CANDS.
 Use TAGNAME-RE to search in current buffer with BOUND in ROOT-DIR.
-CONTEXT is extra information.
-If SHOW-ONLY-TEXT is t, the candidate shows only text."
+CONTEXT is extra information."
     `(cond
       ((re-search-forward ,tagname-re ,bound t)
        (let* ((line-number (match-string-no-properties 3))
@@ -832,10 +831,9 @@ If SHOW-ONLY-TEXT is t, the candidate shows only text."
        (end-of-line)
        nil)))
 
-(defun counsel-etags-extract-cands (tags-file tagname fuzzy context &optional match-file show-only-text)
+(defun counsel-etags-extract-cands (tags-file tagname fuzzy context &optional show-only-text)
   "Parse TAGS-FILE to find occurrences of TAGNAME using FUZZY algorithm.
 CONTEXT is extra information collected before find tag definition.
-If MATCH-FILE is a file path, only tag names in it is extracted.
 If SHOW-ONLY-TEXT is t, the candidate shows only text."
   (let* ((root-dir (file-name-directory tags-file))
          (tagname-re (concat "\\([^\177\001\n]+\\)\177\\("
@@ -871,41 +869,18 @@ If SHOW-ONLY-TEXT is t, the candidate shows only text."
       (with-temp-buffer
         (insert file-content)
         (modify-syntax-entry ?_ "w")
-
         (goto-char (point-min))
         ;; first step, regex should be simple to speed up search
         (let* ((case-fold-search fuzzy))
-          (cond
-           (match-file
-            ;; List tag name in current file or files whose path matching the pattern (use tagname)
-            ;; Tags file may contain relative path only.
-            (let* ((file-name (file-relative-name match-file
-                                                  (file-name-directory tags-file)))
-                   (b (re-search-forward  (concat "^" file-name ",") nil t))
-                   e
-                   str)
-              (when (and b
-                         (setq e (or (re-search-forward "\014?[\r\n]+[^\001\177,]+,[0-9]+")
-                                     (point-max)))
-                         (< b e))
-                (goto-char b)
-                (while (counsel-etags-push-one-candidate cands
-                                                         tagname-re
-                                                         e
-                                                         root-dir
-                                                         context
-                                                         show-only-text)))))
-           (t
             ;; normal tag search algorithm
-            (while (re-search-forward tagname nil t)
-              (beginning-of-line)
-              ;; second step, more precise search
-              (counsel-etags-push-one-candidate cands
-                                                tagname-re
-                                                (point-at-eol)
-                                                root-dir
-                                                context
-                                                show-only-text)))))))
+          (while (re-search-forward tagname nil t)
+            (beginning-of-line)
+            ;; second step, more precise search
+            (counsel-etags-push-one-candidate cands
+                                              tagname-re
+                                              (point-at-eol)
+                                              root-dir
+                                              context)))))
     (and cands (nreverse cands))))
 
 (defun counsel-etags-collect-cands (tagname fuzzy current-file &optional dir context)
@@ -1208,29 +1183,13 @@ CONTEXT is extra information collected before finding tag definition."
   "List tags in current file.  If SHOW-LIST-ONLY is t, return the list of tags only."
   (interactive)
   (counsel-etags-tags-file-must-exist)
-  (let* ((dir (counsel-etags-tags-file-directory))
-         (force-tags-file (and dir
-                               (file-exists-p (counsel-etags-get-tags-file-path dir))
-                               (counsel-etags-get-tags-file-path dir)))
-         (tags-file (or force-tags-file
-                        (counsel-etags-locate-tags-file)))
-         (cands (and tags-file
-                     buffer-file-name
-                     (counsel-etags-extract-cands tags-file
-                                                  nil
-                                                  t
-                                                  nil
-                                                  buffer-file-name
-                                                  t))))
+  (let* ((cands nil))
     (cond
      (show-list-only
       cands)
      (t
-      (ivy-read "Tags in current file:"
-                cands
-                :action `(lambda (e)
-                           (if (consp e) (setq e (cdr e)))
-                           (counsel-etags-open-file-api e ,dir)))))))
+      ;; do nothing
+      ))))
 
 ;;;###autoload
 (defun counsel-etags-find-tag ()
