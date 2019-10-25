@@ -1182,8 +1182,13 @@ CONTEXT is extra information collected before finding tag definition."
 (defun counsel-etags-list-tag-in-current-file(&optional show-list-only)
   "List tags in current file.  If SHOW-LIST-ONLY is t, return the list of tags only."
   (interactive)
-  (counsel-etags-tags-file-must-exist)
-  (let* ((cands nil))
+  (let* ((code-file buffer-file-name)
+         (cands nil))
+    (unless code-file
+      (setq code-file
+            (make-temp-file (expand-file-name "coet"
+                                              (or small-temporary-file-directory
+                                                  temporary-file-directory)))))
     (cond
      (show-list-only
       cands)
